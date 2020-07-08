@@ -19,8 +19,8 @@ e = 1.6E-19
 E_C = (e ** 2) / C
 
 # Define a 1D array for the values for the voltages
-V_SD = np.linspace(-0.02, 0.02, 1000)
-V_G = np.linspace(0.025, 0.08, 1000)
+V_SD = np.linspace(-0.02, 0.02, 2000)
+V_G = np.linspace(0.02, 0.08, 3000)
 
 # Generate 2D array to represent possible voltage combinations
 
@@ -73,33 +73,88 @@ def currentChecker(mu_N):
 fig = plt.figure()
 
 for n in N:
-    value = random()  # generate a random number between 0 and 1
-    min_value = 1  # minimum number of range
-    max_value = 4  # maximum number of range
-    scaled_value1 = min_value + (value * (max_value - min_value))  # random float between min_value and max_value
-    scaled_value2 = min_value + (value * (max_value - min_value))  # random float between min_value and max_value
-    scaled_value3 = min_value + (value * (max_value - min_value))  # random float between min_value and max_value
 
-    # potential energy of ground to ground transition GS(N-1) -> GS(N)
+    # potential energy of  ground to ground transition GS(N-1) -> GS(N)
     mu_N = electricPotential(n, V_SD_grid, V_G_grid)
 
     allowed_indices = currentChecker(mu_N)
 
+    random_number1 = random()
+    random_number2 = random()
+
+    min_value = 1  # minimum number of range
+    max_value = 4  # maximum number of range
+    scaled_value1 = min_value + (
+            random_number1 * (max_value - min_value))  # random float between min_value and max_value
+    scaled_value2 = min_value + (
+            random_number2 * (max_value - min_value))  # random float between min_value and max_value
+
+    offsets = np.array([[E_C * scaled_value1 / 10, 2 * E_C * scaled_value1 / 10],
+                       [E_C * scaled_value2 / 10, 2 * E_C * scaled_value2 / 10]])
+
+    '''offsets:
+        [ES(N), LS(N)],
+        [ES(N+1), LS(N+1)] represents the height of each level about the ground state of that level'''
+
     if n != 1:
+
+        # The transitions from this block are to/from excited states
+
         # potential energy of  ground to excited transition GS(N-1) -> ES(N)
-        mu_N_transition1 = mu_N + E_C * scaled_value1/10
+        mu_N_transition1 = mu_N + offsets[0,0]
         mu_N_transition1 = np.multiply(mu_N_transition1, allowed_indices)
+        I_tot += currentChecker(mu_N_transition1)
         '''This does element-wise multiplication
          with allowed_indices. Ensures current only flows / transition occurs only if ground state is free'''
 
+        # potential energy of excited to ground transition GS(N-1) -> LS(N)
+        mu_N_transition2 = mu_N + offsets[0, 1]
+        mu_N_transition2 = np.multiply(mu_N_transition2, allowed_indices)
+        I_tot += currentChecker(mu_N_transition2)
+
         # potential energy of excited to ground transition ES(N-1) -> GS(N)
-        mu_N_transition2 = mu_N - E_C * scaled_value2/10
-        mu_N_transition2 = np.multiply(mu_N_transition2, allowed_indices)
-        I_tot += currentChecker(mu_N) + currentChecker(mu_N_transition1) + currentChecker(mu_N_transition2)
-    else:
-        I_tot += currentChecker(mu_N) # If statement used as only transition to ground state is allowed
-        mu_N_transition2 = mu_N - E_C * scaled_value2 / 10
-        mu_N_transition2 = np.multiply(mu_N_transition2, allowed_indices)
+        mu_N_transition3 = mu_N - offsets[1,0]
+        mu_N_transition3 = np.multiply(mu_N_transition3, allowed_indices)
+        I_tot += currentChecker(mu_N_transition3)
+
+        # potential energy of excited to ground transition ES(N-1) -> ES(N)
+        mu_N_transition4 = mu_N - offsets[1, 0] + offsets[0, 0]
+        mu_N_transition4 = np.multiply(mu_N_transition4, allowed_indices)
+        I_tot += currentChecker(mu_N_transition4)
+
+        # potential energy of excited to ground transition ES(N-1) -> LS(N)
+        mu_N_transition5 = mu_N - offsets[1, 0] + offsets[0, 1]
+        mu_N_transition5 = np.multiply(mu_N_transition5, allowed_indices)
+        I_tot += currentChecker(mu_N_transition5)
+
+        # potential energy of excited to ground transition LS(N-1) -> GS(N)
+        mu_N_transition6 = mu_N - offsets[1,1]
+        mu_N_transition6 = np.multiply(mu_N_transition6, allowed_indices)
+        I_tot += currentChecker(mu_N_transition6)
+
+        # potential energy of excited to ground transition LS(N-1) -> ES(N)
+        mu_N_transition7 = mu_N - offsets[1,1] + offsets[0,0]
+        mu_N_transition7 = np.multiply(mu_N_transition7, allowed_indices)
+        I_tot += currentChecker(mu_N_transition5)
+
+        # potential energy of excited to ground transition LS(N-1) -> LS(N)
+        mu_N_transition8 = mu_N - offsets[1, 1] + offsets[0, 1]
+        mu_N_transition8 = np.multiply(mu_N_transition8, allowed_indices)
+        I_tot += currentChecker(mu_N_transition8)
+
+    else:  # If statement is used as only transition to ground state is allowed for N = 1
+
+        # potential energy of excited to ground transition ES(N-1) -> GS(N)
+        mu_N_transition3 = mu_N - offsets[1, 0]
+        mu_N_transition3 = np.multiply(mu_N_transition3, allowed_indices)
+        I_tot += currentChecker(mu_N_transition3)
+
+        # potential energy of excited to ground transition LS(N-1) -> GS(N)
+        mu_N_transition6 = mu_N - offsets[1, 1]
+        mu_N_transition6 = np.multiply(mu_N_transition6, allowed_indices)
+        I_tot += currentChecker(mu_N_transition6)
+
+    I_tot += currentChecker(mu_N)
 
 I_tot_filter = gaussian_filter(I_tot, sigma=0)  # Apply Gaussian Filter. The greater sigma the more blur.
 
