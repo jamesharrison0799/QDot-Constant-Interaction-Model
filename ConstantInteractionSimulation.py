@@ -1,15 +1,17 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
-from random import seed
-from random import random
+from random import seed # generates seed for random number generator
+from random import random  # random generates a random number between 0 and 1
+from random import uniform # generates random float between specified range
+from datetime import datetime
 
 # seed random number generator
-seed(1)
+seed(datetime.now())  # use current time as random number seed
 
 # Define Constants
 
-N = range(1,10)
+N = range(1,15)
 N_0 = 0
 C_S = 10E-19
 C_D = 10E-19
@@ -20,7 +22,7 @@ E_C = (e ** 2) / C
 
 # Define a 1D array for the values for the voltages
 V_SD = np.linspace(-0.05, 0.05, 1000)
-V_G = np.linspace(0.00, 0.15, 1000)
+V_G = np.linspace(0.005, 0.35, 1000)
 
 # Generate 2D array to represent possible voltage combinations
 
@@ -44,7 +46,7 @@ def electricPotential(n, V_SD_grid, V_G_grid):
     :return: The Electric Potential for adding the nth electron to the dot
     """
 
-    E_N = 10 * E_C * random() / n  # arbitrary random formula used to increase diamond width as more electrons are added
+    E_N = E_C*(((n)**2-(n-1)**2)/n*5+random()/9*n)  # arbitrary random formula used to increase diamond width as more electrons are added
 
     return (n - N_0 - 1/2) * E_C - (E_C / e) * (C_S * V_SD_grid + C_G * V_G_grid) + E_N
 
@@ -72,45 +74,51 @@ def currentChecker(mu_N):
 
 fig = plt.figure()
 
-value = random()  # generate a random number between 0 and 1
-min_value = 1  # minimum number of range
-max_value = 4  # maximum number of range
-scaled_value1 = min_value + (value * (max_value - min_value))  # random float between min_value and max_value
-scaled_value2 = min_value + (value * (max_value - min_value))  # random float between min_value and max_value
-scaled_value3 = min_value + (value * (max_value - min_value))  # random float between min_value and max_value
 
+Estate_height_previous = 0
+Estate_height = uniform(0.1, 0.5) * E_C
 for n in N:
 
     # potential energy of ground to ground transition GS(N-1) -> GS(N)
     mu_N = electricPotential(n, V_SD_grid, V_G_grid)
 
     # Indices where current can flow for  GS(N-1) -> GS(N) transitions
-    allowed_indices = current_groundstate = currentChecker(mu_N)
+    allowed_indices = current_ground = currentChecker(mu_N)
 
     if n == 1:
-        # potential energy of  ground to excited transition GS(N-1) -> ES(N)
-        mu_N_transition1 = mu_N + E_C * scaled_value1 / 10
+        # potential energy of ground to excited transition GS(N-1) -> ES(N)
+        mu_N_transition1 = mu_N + Estate_height
+
         mu_N_transition1 = np.multiply(mu_N_transition1, allowed_indices)
         '''This does element-wise multiplication
-                 with allowed_indices. Ensures current only flows / transition occurs only if ground state is free'''
+                with allowed_indices. Ensures current only flows / transition occurs only if ground state is free'''
 
         current_transition1 = currentChecker(mu_N_transition1)  # additional check if current can flow
-        I_tot += current_transition1
+        random_current_transition1 = current_transition1 * uniform(0.5, 2)
+        '''random_current_transition1 adds some randomness to the current value'''
+
+        current_transition1 = currentChecker(mu_N_transition1)  # additional check if current can flow
+
+        I_tot += random_current_transition1
 
     elif n != 1:
         # potential energy of  ground to excited transition GS(N-1) -> ES(N)
-        mu_N_transition1 = mu_N + E_C * scaled_value1/10
+        mu_N_transition1 = mu_N + Estate_height
         mu_N_transition1 = np.multiply(mu_N_transition1, allowed_indices)
         current_transition1 = currentChecker(mu_N_transition1)  # additional check if current can flow
+        random_current_transition1 = current_transition1 * uniform(0.2, 2)
 
         # potential energy of excited to ground transition ES(N-1) -> GS(N)
-        mu_N_transition2 = mu_N - E_C * scaled_value2/10
+        mu_N_transition2 = mu_N - Estate_height_previous
         mu_N_transition2 = np.multiply(mu_N_transition2, allowed_indices)
         current_transition2 = currentChecker(mu_N_transition2)  # additional check if current can flow
+        random_current_transition2 = current_transition2 * uniform(0.2, 2)
 
-        I_tot += current_transition1 + current_transition2
+        I_tot += random_current_transition1 + random_current_transition2
 
-    I_tot += current_groundstate  # If statement used as only transition from ground state is allowed for n = 1
+    I_tot += current_ground  # If statement used as only transition from ground state is allowed for n = 1
+
+    Estate_height_previous = Estate_height
 
 I_tot = I_tot / np.max(I_tot) # scale current values
 
