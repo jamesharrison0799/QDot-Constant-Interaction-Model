@@ -76,8 +76,8 @@ fig = plt.figure()
 
 
 Estate_height_previous = 0
-Estate_height = uniform(0.1, 0.5) * E_C
 for n in N:
+    Estate_height = uniform(0.1, 0.5) * E_C
 
     # potential energy of ground to ground transition GS(N-1) -> GS(N)
     mu_N = electricPotential(n, V_SD_grid, V_G_grid)
