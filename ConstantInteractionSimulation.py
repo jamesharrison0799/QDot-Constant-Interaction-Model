@@ -5,6 +5,7 @@ from random import seed # generates seed for random number generator
 from random import random  # random generates a random number between 0 and 1
 from random import uniform # generates random float between specified range
 from datetime import datetime
+from skimage.util import random_noise
 
 # seed random number generator
 seed(datetime.now())  # use current time as random number seed
@@ -74,16 +75,7 @@ def currentChecker(mu_N):
 
 fig = plt.figure()
 
-
 Estate_height_previous = 0
-
-offsets = np.array([[E_C * 1 / 10,  E_C * 2 / 10],
-                       [E_C * 1 / 10,  E_C * 2 / 10]]) # If doing a random implementation that changes
-                                                                # for each n need to cache values
-
-'''offsets:
-       [ES(N), LS(N)],
-       [ES(N-1), LS(N-1)] represents the height of each level about the ground state of that level'''
 
 for n in N:
     Estate_height = uniform(0.1, 0.5) * E_C
@@ -176,7 +168,8 @@ for n in N:
 
 I_tot = I_tot / np.max(I_tot) # scale current values
 
-I_tot_filter = gaussian_filter(I_tot, sigma=0)  # Apply Gaussian Filter. The greater sigma the more blur.
+I_tot_filter = random_noise(I_tot)
+I_tot_filter = gaussian_filter(I_tot, sigma=5)  # Apply Gaussian Filter. The greater sigma the more blur.
 
 # Plot diamonds
 
