@@ -1,17 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
+from skimage.util import random_noise
 from random import seed
 from random import random
 
 # seed random number generator
-seed(1)
+seed()
 
 # Define Constants
 
-N = range(1,8)
+N = range(1,7)
 N_0 = 0
-C_S = 5E-19
+C_S = 10E-19
 C_D = 10E-19
 C_G = 12E-18
 C = C_S + C_D + C_G
@@ -19,8 +20,8 @@ e = 1.6E-19
 E_C = (e ** 2) / C
 
 # Define a 1D array for the values for the voltages
-V_SD = np.linspace(-0.02, 0.02, 2000)
-V_G = np.linspace(0.02, 0.08, 3000)
+V_SD = np.linspace(-0.03, 0.03, 2000)
+V_G = np.linspace(0.00, 0.10, 2000)
 
 # Generate 2D array to represent possible voltage combinations
 
@@ -72,29 +73,19 @@ def currentChecker(mu_N):
 
 fig = plt.figure()
 
-for n in N:
+offsets = np.array([[E_C * 1 / 10,  E_C * 2 / 10],
+                       [E_C * 1 / 10,  E_C * 2 / 10]]) # If doing a random implementation that changes
+                                                                # for each n need to cache values
 
+'''offsets:
+       [ES(N), LS(N)],
+       [ES(N-1), LS(N-1)] represents the height of each level about the ground state of that level'''
+
+for n in N:
     # potential energy of  ground to ground transition GS(N-1) -> GS(N)
     mu_N = electricPotential(n, V_SD_grid, V_G_grid)
 
     allowed_indices = currentChecker(mu_N)
-
-    random_number1 = random()
-    random_number2 = random()
-
-    min_value = 1  # minimum number of range
-    max_value = 4  # maximum number of range
-    scaled_value1 = min_value + (
-            random_number1 * (max_value - min_value))  # random float between min_value and max_value
-    scaled_value2 = min_value + (
-            random_number2 * (max_value - min_value))  # random float between min_value and max_value
-
-    offsets = np.array([[E_C * scaled_value1 / 10, 2 * E_C * scaled_value1 / 10],
-                       [E_C * scaled_value2 / 10, 2 * E_C * scaled_value2 / 10]])
-
-    '''offsets:
-        [ES(N), LS(N)],
-        [ES(N+1), LS(N+1)] represents the height of each level about the ground state of that level'''
 
     if n != 1:
 
@@ -103,60 +94,48 @@ for n in N:
         # potential energy of  ground to excited transition GS(N-1) -> ES(N)
         mu_N_transition1 = mu_N + offsets[0,0]
         mu_N_transition1 = np.multiply(mu_N_transition1, allowed_indices)
-        I_tot += currentChecker(mu_N_transition1)
         '''This does element-wise multiplication
          with allowed_indices. Ensures current only flows / transition occurs only if ground state is free'''
 
         # potential energy of excited to ground transition GS(N-1) -> LS(N)
         mu_N_transition2 = mu_N + offsets[0, 1]
         mu_N_transition2 = np.multiply(mu_N_transition2, allowed_indices)
-        I_tot += currentChecker(mu_N_transition2)
 
         # potential energy of excited to ground transition ES(N-1) -> GS(N)
         mu_N_transition3 = mu_N - offsets[1,0]
         mu_N_transition3 = np.multiply(mu_N_transition3, allowed_indices)
-        I_tot += currentChecker(mu_N_transition3)
 
         # potential energy of excited to ground transition ES(N-1) -> ES(N)
         mu_N_transition4 = mu_N - offsets[1, 0] + offsets[0, 0]
         mu_N_transition4 = np.multiply(mu_N_transition4, allowed_indices)
-        I_tot += currentChecker(mu_N_transition4)
 
         # potential energy of excited to ground transition ES(N-1) -> LS(N)
         mu_N_transition5 = mu_N - offsets[1, 0] + offsets[0, 1]
         mu_N_transition5 = np.multiply(mu_N_transition5, allowed_indices)
-        I_tot += currentChecker(mu_N_transition5)
 
         # potential energy of excited to ground transition LS(N-1) -> GS(N)
         mu_N_transition6 = mu_N - offsets[1,1]
         mu_N_transition6 = np.multiply(mu_N_transition6, allowed_indices)
-        I_tot += currentChecker(mu_N_transition6)
 
         # potential energy of excited to ground transition LS(N-1) -> ES(N)
         mu_N_transition7 = mu_N - offsets[1,1] + offsets[0,0]
         mu_N_transition7 = np.multiply(mu_N_transition7, allowed_indices)
-        I_tot += currentChecker(mu_N_transition5)
 
         # potential energy of excited to ground transition LS(N-1) -> LS(N)
         mu_N_transition8 = mu_N - offsets[1, 1] + offsets[0, 1]
         mu_N_transition8 = np.multiply(mu_N_transition8, allowed_indices)
-        I_tot += currentChecker(mu_N_transition8)
 
-    else:  # If statement is used as only transition to ground state is allowed for N = 1
+        I_tot += currentChecker(mu_N_transition1) + currentChecker(mu_N_transition2) \
+        + currentChecker(mu_N_transition3) + currentChecker(mu_N_transition4) + currentChecker(mu_N_transition5) \
+        + currentChecker(mu_N_transition6) + currentChecker(mu_N_transition7) + currentChecker(mu_N_transition8)
 
-        # potential energy of excited to ground transition ES(N-1) -> GS(N)
-        mu_N_transition3 = mu_N - offsets[1, 0]
-        mu_N_transition3 = np.multiply(mu_N_transition3, allowed_indices)
-        I_tot += currentChecker(mu_N_transition3)
-
-        # potential energy of excited to ground transition LS(N-1) -> GS(N)
-        mu_N_transition6 = mu_N - offsets[1, 1]
-        mu_N_transition6 = np.multiply(mu_N_transition6, allowed_indices)
-        I_tot += currentChecker(mu_N_transition6)
+      # If statement is used as only transition to ground state is allowed for N = 1 from ground state
 
     I_tot += currentChecker(mu_N)
+    print(I_tot)
 
 I_tot_filter = gaussian_filter(I_tot, sigma=0)  # Apply Gaussian Filter. The greater sigma the more blur.
+#I_tot_filter = random_noise(I_tot_filter, mode='s&p',amount=0.01)
 
 # Plot diamonds
 
