@@ -114,7 +114,13 @@ for n in N:
         current_transition2 = currentChecker(mu_N_transition2)  # additional check if current can flow
         random_current_transition2 = current_transition2 * uniform(0.2, 2)
 
-        I_tot += random_current_transition1 + random_current_transition2
+        # potential energy of excited to ground transition ES(N-1) -> ES(N)
+        mu_N_transition3 = mu_N - Estate_height_previous + Estate_height
+        mu_N_transition3 = np.multiply(mu_N_transition3, allowed_indices)
+        current_transition3 = currentChecker(mu_N_transition3)  # additional check if current can flow
+        random_current_transition3 = current_transition3 * uniform(0.2, 2)
+
+        I_tot += random_current_transition1 + random_current_transition2 + random_current_transition3
 
     I_tot += current_ground  # If statement used as only transition from ground state is allowed for n = 1
 
