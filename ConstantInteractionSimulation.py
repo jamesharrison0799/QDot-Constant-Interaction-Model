@@ -6,6 +6,7 @@ from random import random  # random generates a random number between 0 and 1
 from random import uniform # generates random float between specified range
 from datetime import datetime
 from skimage.util import random_noise
+import cv2
 
 # seed random number generator
 seed(datetime.now())  # use current time as random number seed
@@ -22,8 +23,8 @@ e = 1.6E-19
 E_C = (e ** 2) / C
 
 # Define a 1D array for the values for the voltages
-V_SD = np.linspace(-0.05, 0.05, 1000)
-V_G = np.linspace(0.01, 0.35, 1000)
+V_SD = np.linspace(-0.05, 0.05, 1500)
+V_G = np.linspace(0.05, 0.35, 1500)
 
 # Generate 2D array to represent possible voltage combinations
 
@@ -35,6 +36,7 @@ mu_D = 0  # drain potential energy (convention for it to equal zero - grounded)
 mu_S = - e * V_SD  # source potential energy
 
 I_tot = np.zeros(V_SD_grid.shape)  # Define the total current
+I_ground = np.zeros(V_SD_grid.shape)  # Define the ground transition current
 
 
 def electricPotential(n, V_SD_grid, V_G_grid):
@@ -73,7 +75,7 @@ def currentChecker(mu_N):
     return I_1 + I_2  # combine the result of these possibilities.
 
 
-fig = plt.figure()
+fig1 = plt.figure()
 
 Estate_height_previous = 0
 
@@ -163,6 +165,9 @@ for n in N:
       # If statement is used as only transition to ground state is allowed for N = 1 from ground state
 
     I_tot += current_ground
+    I_ground += current_ground
+
+
     Estate_height_previous = Estate_height
     Lstate_height_previous = Lstate_height
 
@@ -178,8 +183,53 @@ levels attribute to fix this so 0 current was grouped with the small current val
 
 plt.ylabel("$V_{SD}$ (V)")
 plt.xlabel("$V_{G}$ (V)")
-cb = fig.colorbar(contour)
+cb = fig1.colorbar(contour)
 cb.ax.set_ylabel("$I$ (arb. units)", rotation=270, labelpad=20)
 plt.title("Quantum Dot Simulation")
 plt.show()
 
+grayImage = np.array(I_ground*255).astype('uint8').T # gray scale image in correct format for following functions
+
+# Determine thresholds for Canny Edge Detection using Otsu's Method
+
+high_thresh, thresh_im = cv2.threshold(grayImage, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+low_thresh = 0.5 * high_thresh
+
+canny = cv2.Canny(grayImage, low_thresh, high_thresh) # perform canny edge detection
+blank_image = np.zeros((grayImage.shape[0], grayImage.shape[1]), np.uint8)  # Generate blank image to draw lines on
+
+# minLineLength - Minimum length of line. Line segments shorter than this are rejected.
+# maxLineGap - Maximum allowed gap between line segments to treat them as single line.I
+lines = cv2.HoughLinesP(canny, rho=1,theta=1*np.pi/180, threshold=30, minLineLength=600, maxLineGap=700)
+# extra redundant parameter that causes confusion
+for x in range(0, len(lines)):
+    for x1,y1,x2,y2 in lines[x]:
+        cv2.line(blank_image,(x1,y1),(x2,y2),255,2)
+
+
+fig2, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20,10)) # Create subplot with 1 row, 3 columns
+
+contour1 = ax1.contourf(V_G_grid,V_SD_grid, I_tot_filter, cmap="seismic", levels = np.linspace(0,1,100))
+'''The extra diamonds arose out of the fact that there was a small number of contour levels added in 
+levels attribute to fix this so 0 current was grouped with the small current values '''
+ax1.set_xlabel("$V_{TG}$ (V)")
+ax1.set_ylabel("$V_{SD}$ (V)")
+# cb1 = fig2.colorbar(contour1, ax = ax1) # Not Necessary
+# cb1.ax.set_ylabel("$I$ (arb. units)", rotation=270, labelpad=20)
+ax1.title.set_text("Quantum Dot Simulation")
+
+
+ax2.title.set_text("Canny Edge Detection")
+ax2.set_xlabel("Pixels")
+ax2.set_ylabel("Pixels")
+ax2.text(0, 1900, "The Canny Edge Detection and Hough Transform are done on just the\n"
+                   "ground-ground transitions with no added noise or distortion.")
+ax2.imshow(canny, cmap="gray")
+
+ax3.title.set_text("Hough Transform")
+ax3.set_xlabel("Pixels")
+ax3.set_ylabel("Pixels")
+
+ax3.imshow(blank_image, cmap="gray")
+
+plt.show()
