@@ -12,18 +12,18 @@ seed(datetime.now())  # use current time as random number seed
 
 # Define Constants
 
-N = range(1,15)
+N = range(1,8)
 N_0 = 0
-C_S = 10E-19
-C_D = 10E-19
-C_G = 12E-18
+C_S = 10E-19 * uniform (0.5, 1)  # Uniform used for some random variation
+C_D = 10E-19 * uniform (0.5, 1)
+C_G = 12E-18 * uniform (0.4, 1)
 C = C_S + C_D + C_G
 e = 1.6E-19
 E_C = (e ** 2) / C
 
 # Define a 1D array for the values for the voltages
 V_SD = np.linspace(-0.05, 0.05, 1000)
-V_G = np.linspace(0.005, 0.35, 1000)
+V_G = np.linspace(0.01, 0.35, 1000)
 
 # Generate 2D array to represent possible voltage combinations
 
@@ -168,9 +168,8 @@ for n in N:
 
 I_tot = I_tot / np.max(I_tot) # scale current values
 
-I_tot_filter = random_noise(I_tot)
+I_tot_filter = random_noise(I_tot, mode='gaussian')
 I_tot_filter = gaussian_filter(I_tot, sigma=5)  # Apply Gaussian Filter. The greater sigma the more blur.
-
 # Plot diamonds
 
 contour = plt.contourf(V_G_grid,V_SD_grid, I_tot_filter, cmap="seismic", levels = np.linspace(0,1,100))
