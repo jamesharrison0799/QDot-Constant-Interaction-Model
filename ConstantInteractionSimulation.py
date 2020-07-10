@@ -5,6 +5,7 @@ from random import seed # generates seed for random number generator
 from random import random  # random generates a random number between 0 and 1
 from random import uniform # generates random float between specified range
 from datetime import datetime
+from skimage.util import random_noise
 
 # seed random number generator
 seed(datetime.now())  # use current time as random number seed
@@ -74,10 +75,11 @@ def currentChecker(mu_N):
 
 fig = plt.figure()
 
-
 Estate_height_previous = 0
+
 for n in N:
     Estate_height = uniform(0.1, 0.5) * E_C
+    Lstate_height = uniform(0.5, 0.8) * E_C
 
     # potential energy of ground to ground transition GS(N-1) -> GS(N)
     mu_N = electricPotential(n, V_SD_grid, V_G_grid)
@@ -85,7 +87,7 @@ for n in N:
     # Indices where current can flow for  GS(N-1) -> GS(N) transitions
     allowed_indices = current_ground = currentChecker(mu_N)
 
-    if n == 1:
+    if n ==1:
         # potential energy of ground to excited transition GS(N-1) -> ES(N)
         mu_N_transition1 = mu_N + Estate_height
 
@@ -97,38 +99,77 @@ for n in N:
         random_current_transition1 = current_transition1 * uniform(0.5, 2)
         '''random_current_transition1 adds some randomness to the current value'''
 
-        current_transition1 = currentChecker(mu_N_transition1)  # additional check if current can flow
 
         I_tot += random_current_transition1
 
     elif n != 1:
+
+        # The transitions from this block are to/from excited states
+
         # potential energy of  ground to excited transition GS(N-1) -> ES(N)
         mu_N_transition1 = mu_N + Estate_height
         mu_N_transition1 = np.multiply(mu_N_transition1, allowed_indices)
         current_transition1 = currentChecker(mu_N_transition1)  # additional check if current can flow
         random_current_transition1 = current_transition1 * uniform(0.2, 2)
+        '''This does element-wise multiplication
+         with allowed_indices. Ensures current only flows / transition occurs only if ground state is free'''
 
-        # potential energy of excited to ground transition ES(N-1) -> GS(N)
-        mu_N_transition2 = mu_N - Estate_height_previous
+        # potential energy of excited to ground transition GS(N-1) -> LS(N)
+        mu_N_transition2 = mu_N + Lstate_height
         mu_N_transition2 = np.multiply(mu_N_transition2, allowed_indices)
         current_transition2 = currentChecker(mu_N_transition2)  # additional check if current can flow
         random_current_transition2 = current_transition2 * uniform(0.2, 2)
 
-        # potential energy of excited to ground transition ES(N-1) -> ES(N)
-        mu_N_transition3 = mu_N - Estate_height_previous + Estate_height
+        # potential energy of excited to ground transition ES(N-1) -> GS(N)
+        mu_N_transition3 = mu_N - Estate_height_previous
         mu_N_transition3 = np.multiply(mu_N_transition3, allowed_indices)
         current_transition3 = currentChecker(mu_N_transition3)  # additional check if current can flow
         random_current_transition3 = current_transition3 * uniform(0.2, 2)
 
-        I_tot += random_current_transition1 + random_current_transition2 + random_current_transition3
+        # potential energy of excited to ground transition ES(N-1) -> ES(N)
+        mu_N_transition4 = mu_N - Estate_height_previous + Estate_height
+        mu_N_transition4 = np.multiply(mu_N_transition4, allowed_indices)
+        current_transition4 = currentChecker(mu_N_transition4)  # additional check if current can flow
+        random_current_transition4 = current_transition4 * uniform(0.2, 2)
 
-    I_tot += current_ground  # If statement used as only transition from ground state is allowed for n = 1
+        # potential energy of excited to ground transition ES(N-1) -> LS(N)
+        mu_N_transition5 = mu_N - Estate_height_previous + Lstate_height
+        mu_N_transition5 = np.multiply(mu_N_transition5, allowed_indices)
+        current_transition5 = currentChecker(mu_N_transition5)  # additional check if current can flow
+        random_current_transition5 = current_transition5 * uniform(0.2, 2)
 
+        # potential energy of excited to ground transition LS(N-1) -> GS(N)
+        mu_N_transition6 = mu_N - Lstate_height_previous
+        mu_N_transition6 = np.multiply(mu_N_transition6, allowed_indices)
+        current_transition6 = currentChecker(mu_N_transition6)  # additional check if current can flow
+        random_current_transition6 = current_transition6 * uniform(0.2, 2)
+
+        # potential energy of excited to ground transition LS(N-1) -> ES(N)
+        mu_N_transition7 = mu_N - Lstate_height_previous + Estate_height
+        mu_N_transition7 = np.multiply(mu_N_transition7, allowed_indices)
+        current_transition7 = currentChecker(mu_N_transition7)  # additional check if current can flow
+        random_current_transition7 = current_transition7 * uniform(0.2, 2)
+
+        # potential energy of excited to ground transition LS(N-1) -> LS(N)
+        mu_N_transition8 = mu_N - Lstate_height_previous + Lstate_height
+        mu_N_transition8 = np.multiply(mu_N_transition8, allowed_indices)
+        current_transition8 = currentChecker(mu_N_transition8)  # additional check if current can flow
+        random_current_transition8 = current_transition8 * uniform(0.2, 2)
+
+        I_tot += random_current_transition1 + random_current_transition2 + random_current_transition3 + \
+                 random_current_transition4 + random_current_transition5 + random_current_transition6 + \
+                 random_current_transition7 + random_current_transition8
+
+      # If statement is used as only transition to ground state is allowed for N = 1 from ground state
+
+    I_tot += current_ground
     Estate_height_previous = Estate_height
+    Lstate_height_previous = Lstate_height
 
 I_tot = I_tot / np.max(I_tot) # scale current values
 
-I_tot_filter = gaussian_filter(I_tot, sigma=0)  # Apply Gaussian Filter. The greater sigma the more blur.
+I_tot_filter = random_noise(I_tot)
+I_tot_filter = gaussian_filter(I_tot, sigma=5)  # Apply Gaussian Filter. The greater sigma the more blur.
 
 # Plot diamonds
 
@@ -138,8 +179,8 @@ levels attribute to fix this so 0 current was grouped with the small current val
 
 plt.ylabel("$V_{SD}$ (V)")
 plt.xlabel("$V_{G}$ (V)")
-colorbar = fig.colorbar(contour)
-colorbar.ax.set_ylabel("$I$ (A)", rotation=270)
+cb = fig.colorbar(contour)
+cb.ax.set_ylabel("$I$ (arb. units)", rotation=270, labelpad=20)
+plt.title("Quantum Dot Simulation")
 plt.show()
-
 
