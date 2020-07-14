@@ -6,7 +6,6 @@ from random import random  # random generates a random number between 0 and 1
 from random import uniform # generates random float between specified range
 from datetime import datetime
 from skimage.util import random_noise
-import cv2
 
 # seed random number generator
 seed(datetime.now())  # use current time as random number seed
@@ -21,10 +20,12 @@ C_G = 12E-18 * uniform (0.4, 1)
 C = C_S + C_D + C_G
 e = 1.6E-19
 E_C = (e ** 2) / C
-
 # Define a 1D array for the values for the voltages
-V_SD = np.linspace(-0.05, 0.05, 1500)
-V_G = np.linspace(0.05, 0.35, 1500)
+V_SD_max = 0.1
+V_G_min = 0.0
+V_G_max = 0.5
+V_SD = np.linspace(- V_SD_max, V_SD_max, 1500)
+V_G = np.linspace(V_G_min, V_G_max, 1500)
 
 # Generate 2D array to represent possible voltage combinations
 
@@ -37,7 +38,9 @@ mu_S = - e * V_SD  # source potential energy
 
 I_tot = np.zeros(V_SD_grid.shape)  # Define the total current
 I_ground = np.zeros(V_SD_grid.shape)  # Define the ground transition current
-
+E_N_previous = 0 # stores previous E_N value
+V_G_start = 0 # start of current diamond
+diamond_starts = np.zeros((1,len(N))) # numpy array to store the store positions of each diamond along x-axis
 
 def electricPotential(n, V_SD_grid, V_G_grid):
 
@@ -51,7 +54,7 @@ def electricPotential(n, V_SD_grid, V_G_grid):
 
     E_N = E_C*(((n)**2-(n-1)**2)/n*5+random()/9*n)  # arbitrary random formula used to increase diamond width as more electrons are added
 
-    return (n - N_0 - 1/2) * E_C - (E_C / e) * (C_S * V_SD_grid + C_G * V_G_grid) + E_N
+    return E_N, (n - N_0 - 1/2) * E_C - (E_C / e) * (C_S * V_SD_grid + C_G * V_G_grid) + E_N
 
 def currentChecker(mu_N):
     """
@@ -77,19 +80,23 @@ def currentChecker(mu_N):
 
 fig1 = plt.figure()
 
-Estate_height_previous = 0
+Estate_height_previous = 0  # stores previous various excited energy height above ground level
 
 for n in N:
     Estate_height = uniform(0.1, 0.5) * E_C
     Lstate_height = uniform(0.5, 0.8) * E_C
 
     # potential energy of ground to ground transition GS(N-1) -> GS(N)
-    mu_N = electricPotential(n, V_SD_grid, V_G_grid)
+    E_N, mu_N = electricPotential(n, V_SD_grid, V_G_grid)
 
     # Indices where current can flow for  GS(N-1) -> GS(N) transitions
     allowed_indices = current_ground = currentChecker(mu_N)
+    delta_E_N = E_N - E_N_previous  # Not sure on exact definition yet
+    delta_V_G = e/C_G + delta_E_N * C /(e *C_G) # Width of current diamond
 
     if n ==1:
+        V_G_start = (e/C_G) * (E_N / E_C + 1/2)  # start of first diamond / start of current diamond
+        diamond_starts[0,n-1] = V_G_start
         # potential energy of ground to excited transition GS(N-1) -> ES(N)
         mu_N_transition1 = mu_N + Estate_height
 
@@ -101,11 +108,11 @@ for n in N:
         random_current_transition1 = current_transition1 * uniform(0.5, 2)
         '''random_current_transition1 adds some randomness to the current value'''
 
-
         I_tot += random_current_transition1
 
     elif n != 1:
-
+        V_G_start += delta_V_G  # update so start of current diamond
+        diamond_starts[0, n-1] = V_G_start
         # The transitions from this block are to/from excited states
 
         # potential energy of  ground to excited transition GS(N-1) -> ES(N)
@@ -162,74 +169,85 @@ for n in N:
                  random_current_transition4 + random_current_transition5 + random_current_transition6 + \
                  random_current_transition7 + random_current_transition8
 
-      # If statement is used as only transition to ground state is allowed for N = 1 from ground state
+    # If statement is used as only transition to ground state is allowed for N = 1 from ground state
 
     I_tot += current_ground
     I_ground += current_ground
 
-
+    # update 'previous' variables to previous values
+    E_N_previous = E_N
     Estate_height_previous = Estate_height
     Lstate_height_previous = Lstate_height
 
+#print("Start of each diamond along x-axis (V): " + str(diamond_starts))
 I_tot = I_tot / np.max(I_tot) # scale current values
+
 
 I_tot_filter = random_noise(I_tot, mode='gaussian')
 I_tot_filter = gaussian_filter(I_tot, sigma=5)  # Apply Gaussian Filter. The greater sigma the more blur.
+
 # Plot diamonds
 
-contour = plt.contourf(V_G_grid,V_SD_grid, I_tot_filter, cmap="seismic", levels = np.linspace(0,1,100))
+contour = plt.contourf(V_G_grid,V_SD_grid, I_tot_filter, cmap="seismic", levels = np.linspace(0,1,100)) # draw contours of diamonds
 '''The extra diamonds arose out of the fact that there was a small number of contour levels added in 
 levels attribute to fix this so 0 current was grouped with the small current values '''
 
-plt.ylabel("$V_{SD}$ (V)")
-plt.xlabel("$V_{G}$ (V)")
-cb = fig1.colorbar(contour)
-cb.ax.set_ylabel("$I$ (arb. units)", rotation=270, labelpad=20)
-plt.title("Quantum Dot Simulation")
-plt.show()
 
-grayImage = np.array(I_ground*255).astype('uint8').T # gray scale image in correct format for following functions
-
-# Determine thresholds for Canny Edge Detection using Otsu's Method
-
-high_thresh, thresh_im = cv2.threshold(grayImage, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-low_thresh = 0.5 * high_thresh
-
-canny = cv2.Canny(grayImage, low_thresh, high_thresh) # perform canny edge detection
-blank_image = np.zeros((grayImage.shape[0], grayImage.shape[1]), np.uint8)  # Generate blank image to draw lines on
-
-# minLineLength - Minimum length of line. Line segments shorter than this are rejected.
-# maxLineGap - Maximum allowed gap between line segments to treat them as single line.I
-lines = cv2.HoughLinesP(canny, rho=1,theta=1*np.pi/180, threshold=30, minLineLength=600, maxLineGap=700)
-# extra redundant parameter that causes confusion
-for x in range(0, len(lines)):
-    for x1,y1,x2,y2 in lines[x]:
-        cv2.line(blank_image,(x1,y1),(x2,y2),255,2)
+#plt.ylabel("$V_{SD}$ (V)")
+#plt.xlabel("$V_{G}$ (V)")
+plt.ylim([-V_SD_max, V_SD_max])
+plt.xlim([V_G_min, V_G_max])
+#cb = fig1.colorbar(contour)
+#cb.ax.set_ylabel("$I$ (arb. units)", rotation=270, labelpad=20)
+#plt.title("Quantum Dot Simulation")
+plt.axis("off")
 
 
-fig2, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20,10)) # Create subplot with 1 row, 3 columns
-
-contour1 = ax1.contourf(V_G_grid,V_SD_grid, I_tot_filter, cmap="seismic", levels = np.linspace(0,1,100))
-'''The extra diamonds arose out of the fact that there was a small number of contour levels added in 
-levels attribute to fix this so 0 current was grouped with the small current values '''
-ax1.set_xlabel("$V_{TG}$ (V)")
-ax1.set_ylabel("$V_{SD}$ (V)")
-# cb1 = fig2.colorbar(contour1, ax = ax1) # Not Necessary
-# cb1.ax.set_ylabel("$I$ (arb. units)", rotation=270, labelpad=20)
-ax1.title.set_text("Quantum Dot Simulation")
+plt.savefig("test.png",bbox_inches='tight', pad_inches=0.0)
 
 
-ax2.title.set_text("Canny Edge Detection")
-ax2.set_xlabel("Pixels")
-ax2.set_ylabel("Pixels")
-ax2.text(0, 1900, "The Canny Edge Detection and Hough Transform are done on just the\n"
-                   "ground-ground transitions with no added noise or distortion.")
-ax2.imshow(canny, cmap="gray")
+# Compute negative and positive slopes of diamonds for drawing edges
 
-ax3.title.set_text("Hough Transform")
-ax3.set_xlabel("Pixels")
-ax3.set_ylabel("Pixels")
+positive_slope = C_G / (C_G + C_D)
+negative_slope = - C_G / C_S
 
-ax3.imshow(blank_image, cmap="gray")
+fig2 = plt.figure()
 
-plt.show()
+for i in range(len(N)-1):  # need -1 as block would attempt to access index N otherwise and it doesn't exist
+    # positive grad. top-left
+    x_final = (positive_slope * diamond_starts[0, i] - negative_slope * diamond_starts[0, i + 1]) / (positive_slope - negative_slope)  # analytical formula derived by equating equations of lines
+    x_values = [diamond_starts[0, i], x_final]
+    y_final = positive_slope * (x_final - diamond_starts[0, i])
+    y_values = [0, y_final]
+    plt.plot(x_values, y_values, '-k')
+
+    # negative grad. top-right
+    x_values = [x_final, diamond_starts[0, i + 1]]
+    y_values = [y_final, 0]
+    plt.plot(x_values, y_values, '-k')
+
+    # positive grad. bottom-right
+    x_final = (positive_slope * diamond_starts[0, i + 1] - negative_slope * diamond_starts[0, i]) / (positive_slope - negative_slope)
+    x_values = [diamond_starts[0, i + 1], x_final]
+    y_final = positive_slope * (x_final - diamond_starts[0, i + 1])
+    y_values = [0, y_final]
+    plt.plot(x_values, y_values, '-k')
+
+    # negative grad. bottom-left
+    x_values = [x_final, diamond_starts[0, i]]
+    y_values = [y_final, 0]
+    plt.plot(x_values, y_values, '-k')
+
+
+plt.ylim([-V_SD_max, V_SD_max])
+plt.xlim([V_G_min, V_G_max])
+plt.axis("off")
+
+plt.savefig("test2.png",bbox_inches='tight', pad_inches=0.0)
+
+
+
+
+
+
+
