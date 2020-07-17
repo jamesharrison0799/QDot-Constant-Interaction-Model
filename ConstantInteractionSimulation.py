@@ -104,63 +104,24 @@ for n in N:
 
     elif n != 1:
 
-        # The transitions from this block are to/from excited states
+        mu_N_transitions = []
+        mu_N_transitions.append(mu_N + Estate_height)
+        mu_N_transitions.append(mu_N + Lstate_height)
+        mu_N_transitions.append(mu_N - Estate_height_previous)
+        mu_N_transitions.append(mu_N - Estate_height_previous + Estate_height)
+        mu_N_transitions.append(mu_N - Estate_height_previous + Estate_height)
+        mu_N_transitions.append(mu_N - Estate_height_previous + Lstate_height)
+        mu_N_transitions.append(mu_N - Lstate_height_previous)
+        mu_N_transitions.append(mu_N - Lstate_height_previous + Estate_height)
+        mu_N_transitions.append(mu_N - Lstate_height_previous + Lstate_height)
 
-        # potential energy of  ground to excited transition GS(N-1) -> ES(N)
-        mu_N_transition1 = mu_N + Estate_height
-        mu_N_transition1 = np.multiply(mu_N_transition1, allowed_indices)
-        current_transition1 = currentChecker(mu_N_transition1)  # additional check if current can flow
-        random_current_transition1 = current_transition1 * uniform(0.2, 2)
-        '''This does element-wise multiplication
-         with allowed_indices. Ensures current only flows / transition occurs only if ground state is free'''
+        random_current_transitions = []
 
-        # potential energy of excited to ground transition GS(N-1) -> LS(N)
-        mu_N_transition2 = mu_N + Lstate_height
-        mu_N_transition2 = np.multiply(mu_N_transition2, allowed_indices)
-        current_transition2 = currentChecker(mu_N_transition2)  # additional check if current can flow
-        random_current_transition2 = current_transition2 * uniform(0.2, 2)
+        for transition in mu_N_transitions:
+            random_current_transitions.append(currentChecker(np.multiply(transition, allowed_indices)) * uniform(0.2, 2))
 
-        # potential energy of excited to ground transition ES(N-1) -> GS(N)
-        mu_N_transition3 = mu_N - Estate_height_previous
-        mu_N_transition3 = np.multiply(mu_N_transition3, allowed_indices)
-        current_transition3 = currentChecker(mu_N_transition3)  # additional check if current can flow
-        random_current_transition3 = current_transition3 * uniform(0.2, 2)
-
-        # potential energy of excited to ground transition ES(N-1) -> ES(N)
-        mu_N_transition4 = mu_N - Estate_height_previous + Estate_height
-        mu_N_transition4 = np.multiply(mu_N_transition4, allowed_indices)
-        current_transition4 = currentChecker(mu_N_transition4)  # additional check if current can flow
-        random_current_transition4 = current_transition4 * uniform(0.2, 2)
-
-        # potential energy of excited to ground transition ES(N-1) -> LS(N)
-        mu_N_transition5 = mu_N - Estate_height_previous + Lstate_height
-        mu_N_transition5 = np.multiply(mu_N_transition5, allowed_indices)
-        current_transition5 = currentChecker(mu_N_transition5)  # additional check if current can flow
-        random_current_transition5 = current_transition5 * uniform(0.2, 2)
-
-        # potential energy of excited to ground transition LS(N-1) -> GS(N)
-        mu_N_transition6 = mu_N - Lstate_height_previous
-        mu_N_transition6 = np.multiply(mu_N_transition6, allowed_indices)
-        current_transition6 = currentChecker(mu_N_transition6)  # additional check if current can flow
-        random_current_transition6 = current_transition6 * uniform(0.2, 2)
-
-        # potential energy of excited to ground transition LS(N-1) -> ES(N)
-        mu_N_transition7 = mu_N - Lstate_height_previous + Estate_height
-        mu_N_transition7 = np.multiply(mu_N_transition7, allowed_indices)
-        current_transition7 = currentChecker(mu_N_transition7)  # additional check if current can flow
-        random_current_transition7 = current_transition7 * uniform(0.2, 2)
-
-        # potential energy of excited to ground transition LS(N-1) -> LS(N)
-        mu_N_transition8 = mu_N - Lstate_height_previous + Lstate_height
-        mu_N_transition8 = np.multiply(mu_N_transition8, allowed_indices)
-        current_transition8 = currentChecker(mu_N_transition8)  # additional check if current can flow
-        random_current_transition8 = current_transition8 * uniform(0.2, 2)
-
-        I_tot += random_current_transition1 + random_current_transition2 + random_current_transition3 + \
-                 random_current_transition4 + random_current_transition5 + random_current_transition6 + \
-                 random_current_transition7 + random_current_transition8
-
-      # If statement is used as only transition to ground state is allowed for N = 1 from ground state
+        for x in random_current_transitions:
+            I_tot += x
 
     I_tot += current_ground
     Estate_height_previous = Estate_height
@@ -174,7 +135,7 @@ I_tot_filter = gaussian_filter(I_tot, sigma=5)  # Apply Gaussian Filter. The gre
 # Plot diamonds
 
 contour = plt.contourf(V_G_grid,V_SD_grid, I_tot_filter, cmap="seismic", levels = np.linspace(0,1,100))
-'''The extra diamonds arose out of the fact that there was a small number of contour levels added in 
+'''The extra diamonds arose out of the fact that there was a small number of contour levels added in
 levels attribute to fix this so 0 current was grouped with the small current values '''
 
 plt.ylabel("$V_{SD}$ (V)")
@@ -183,4 +144,3 @@ cb = fig.colorbar(contour)
 cb.ax.set_ylabel("$I$ (arb. units)", rotation=270, labelpad=20)
 plt.title("Quantum Dot Simulation")
 plt.show()
-
